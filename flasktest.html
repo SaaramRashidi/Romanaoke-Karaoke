@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <h1>
+        <a>
+            <img src="https://see.fontimg.com/api/renderfont4/PVK0B/eyJyIjoiZnMiLCJoIjo2NSwidyI6MTAwMCwiZnMiOjY1LCJmZ2MiOiIjMDAwMDAwIiwiYmdjIjoiI0ZGRkZGRiIsInQiOjF9/Um9tYW5vYWtl/ankh-sanctuary.png"
+                alt="70s fonts">
+        </a>
+    </h1>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #b5dfcb;
+            color: #333; 
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        h1 {
+            color: #06571a;
+            margin-top: 20px;
+            animation: slideIn 1s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Input and button styles */
+        input, button {
+            font-size: 18px;
+            padding: 10px;
+            margin: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        #songInput {
+            width: 630px; /* Set the width of the input field */
+        }
+        input:focus, button:focus {
+            border-color: #8de2a2;
+            box-shadow: 0 0 5px rgba(156, 231, 212, 0.5);
+        }
+        button {
+            background-color: #34db5e;
+            color: white;
+            cursor: pointer;
+            width: 150px;
+            transform: scale(1);
+        }
+        button:hover {
+            background-color: #8de2a2;
+            transform: scale(1.05);
+        }
+
+        /* Loading indicator styles */
+        #loading {
+            font-size: 24px;
+            color: #555;
+            margin: 20px auto;
+            width: 100%;
+            max-width: 800px;
+            animation: fadeIn 1s ease-in-out;
+        }
+        #spinner {
+            border: 12px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 12px solid #34db5e;
+            width: 80px;
+            height: 80px;
+            animation: spin 1.5s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Lyrics box styles */
+        #lyrics {
+            position: relative;
+            font-size: 40px;
+            margin: 20px auto;
+            width: 80%;
+            max-width: 800px;
+            color: black;
+            height: 400px;
+            overflow: hidden;
+            border-radius: 15px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            opacity: 0; /* Initial state for animation */
+            animation: fadeInLyrics 0.5s ease-in-out forwards; /* Apply animation */
+
+        }
+        #currentLyric {
+            font-size: 80px; /* Font size for current lyrics */
+            color: black;
+            margin-bottom: 20px; /* Gap between current and next lyrics */
+        }
+        #nextLyric {
+            font-size: 50px; /* Font size for next lyrics */
+            color: #7f8c8d;
+        }
+        @keyframes fadeInLyrics {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Lyric transition effects */
+        #currentLyric, #nextLyric {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .fadeOut {
+            opacity: 0;
+        }
+        .fadeIn {
+            opacity: 1;
+        }
+
+        /* Hidden class for non-visible elements */
+        .hidden {
+            display: none;
+        }
+        #authenticationCode {
+            width: 630px; /* Set the width of the input field */
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <input type="text" id="songInput" placeholder="Enter song name and artist">
+        <button type="button" onclick="sendData()">Submit</button>
+    </div>
+    <div class="hidden" id="authSection">
+        <input type="text" id="authenticationCode" placeholder="Enter Spotify authentication">
+        <button type="button" onclick="setAuth()">Authorize</button>
+    </div>
+    <div class="hidden" id="playSection">
+        <button type="button" onclick="playMusic()">Play</button>
+    </div>
+    <div id="loading" class="hidden">
+        <div id="spinner"></div>
+        <div>Loading, please wait...</div>
+    </div>
+    <div id="lyrics">
+        <div id="currentLyric"></div>
+        <div id="nextLyric"></div>
+    </div>
+
+    <script>
+        let lyricsData = [];
+        let currentIndex = 0;
+        let isTrackPlaying = false;
+        let previousTime = 0.0;
+        let auth = "";
+
+        const currentLyricDiv = document.getElementById('currentLyric');
+        const nextLyricDiv = document.getElementById('nextLyric');
+        const loadingDiv = document.getElementById('loading');
+        const authSection = document.getElementById('authSection');
+        const playSection = document.getElementById('playSection');
+        const lyricsDiv = document.getElementById('lyrics');
+
+        currentLyricDiv.innerHTML = "Lyrics will appear here!";
+        nextLyricDiv.innerHTML = "Get ready to sing!";
+        async function sendData() {
+            const song = document.getElementById('songInput').value.trim();
+            const artist = "holder";
+
+            if (!song || !artist) {
+                currentLyricDiv.innerText = 'Please enter both song and artist names.';
+                return;
+            }
+
+            // Clear previous lyrics and show loading indicator
+            currentLyricDiv.innerHTML = '';
+            nextLyricDiv.innerText = '';
+            loadingDiv.classList.remove('hidden');
+            playSection.classList.add('hidden');
+            authSection.classList.add('hidden');
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/search_lyrics', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ song: song, artist: artist }),
+                });
+                const data = await response.json();
+                console.log('Response status:', response.status);
+
+                if (response.ok && data.song_lyrics !== undefined) {
+                    lyricsData = data.song_lyrics;
+                    console.log("Data", lyricsData);
+                    playSection.classList.remove('hidden');
+                } else if (response.ok && data.no_lyrics !== undefined && auth === "") {
+                    currentLyricDiv.innerText = 'Please enter authorization code to continue';
+                    authSection.classList.remove('hidden');
+                } else if (response.ok && data.no_lyrics !== undefined && auth !== "") {
+                    const downloadResponse = await fetch('http://127.0.0.1:5000/download_lyrics');
+                    if (downloadResponse.ok) {
+                        try {
+                            const response = await fetch('http://127.0.0.1:5000/search_lyrics', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ song: song, artist: artist }),
+                            });
+                            if (response.ok && data.song_lyrics !== undefined) {
+                                lyricsData = data.song_lyrics;
+                                console.log("Data", lyricsData);
+                                playSection.classList.remove('hidden');
+                            } else {
+                                currentLyricDiv.innerText = "Lyrics were not downloaded successfully";
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            currentLyricDiv.innerText = "An error occurred with downloading";
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                currentLyricDiv.innerText = 'An error occurred while fetching the data.';
+            } finally {
+                // Hide loading indicator
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        async function setAuth() {
+            auth = document.getElementById("authenticationCode").value.trim();
+            try {
+                const response = await fetch('http://127.0.0.1:5000/send_auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ auth: auth }),
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    authSection.classList.add("hidden");
+                } else {
+                    console.error('Authorization failed:', data.error);
+                }
+            } catch (error) {
+                console.error('Error setting authorization bearer', error);
+            }
+        }
+
+        let mediaRecorder;
+let audioChunks = [];
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = []; // Clear the array for the next recording
+            const base64Audio = await blobToBase64(audioBlob);
+            base64AudioArray.push(base64Audio);
+        };
+
+        mediaRecorder.start();
+        console.log('Recording started');
+    } catch (error) {
+        console.error('Error starting recording:', error);
+    }
+}
+
+function stopRecording(lyrics) {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        console.log('Recording stopped for lyrics:', lyrics);
+    }
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+        async function playMusic() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/playTrack');
+                const data = await response.json();
+                console.log("Data", data);
+                if (data.success !== undefined) {
+                    isTrackPlaying = true;
+                    currentIndex = 0;
+                    base64AudioArray = [];
+                    displayLyrics();
+                }
+            } catch (error) {
+                console.error('Error playing track', error);
+                currentLyricDiv.innerText = "Could not start playback";
+            }
+        }
+        async function displayLyrics() {
+    if (!isTrackPlaying) return;
+    try {
+        const response = await fetch('http://127.0.0.1:5000/timestamp');
+        const data = await response.json();
+        console.log("Full response data: ", data);
+        console.log('Audio String', base64AudioArray);
+
+        if (data.timestamp !== undefined) {
+            const currentTime = data.timestamp;
+            const duration = data.duration;
+            console.log('Current time: ', currentTime);
+
+            // Handle song restart or backward seek
+            if (previousTime > currentTime) {
+                currentIndex = 0;
+                while (currentIndex < lyricsData.length && currentTime >= lyricsData[currentIndex].timestamp) {
+                    currentLyricDiv.innerText = lyricsData[currentIndex].lyrics;
+                    currentIndex++;
+                }
+            }
+
+            // Display lyrics for the current timestamp
+            while (currentIndex < lyricsData.length && currentTime >= lyricsData[currentIndex].timestamp) {
+                currentLyricDiv.innerText = lyricsData[currentIndex].lyrics;
+                // Display the next lyric in the nextLyricDiv
+                if (currentIndex + 1 < lyricsData.length) {
+                    nextLyricDiv.innerText = lyricsData[currentIndex + 1].lyrics;
+                } else {
+                    nextLyricDiv.innerText = ''; // Clear the next lyric container if there are no more lyrics
+                }
+                // Manage recording transitions
+                if (currentIndex > 0) {
+                    stopRecording(lyricsData[currentIndex - 1].lyrics); // Stop previous recording
+                }
+                startRecording(); // Start new recording for current line
+                currentIndex++;
+            }
+
+            // Update the previous timestamp
+            previousTime = currentTime;
+
+            // Trigger the fade-in effect for lyrics
+            lyricsDiv.classList.remove('hidden');
+            currentLyricDiv.classList.remove('fadeOut');
+            currentLyricDiv.classList.add('fadeIn');
+            nextLyricDiv.classList.remove('fadeOut');
+            nextLyricDiv.classList.add('fadeIn');
+
+            // Schedule the next lyric display
+            if (currentIndex < lyricsData.length) {
+                const nextTimestamp = lyricsData[currentIndex].timestamp;
+                const interval = nextTimestamp - currentTime;
+                setTimeout(displayLyrics, interval);
+            } else {
+                // Handle end of audio
+                console.log('Audio End', base64AudioArray);
+                isTrackPlaying = false; 
+                setTimeout(() => {
+                    stopRecording(lyricsData[lyricsData.length - 1].lyrics);
+                    console.log('Audio REAL END', base64AudioArray);
+                }, duration - currentTime);
+            }
+        } else {
+            console.error('No timestamp found:', data.error);
+            lyricsDiv.innerText = "No timestamp available";
+        }
+    } catch (error) {
+        console.error('Error fetching progress:', error);
+        lyricsDiv.innerText = "Error displaying lyrics";
+    }
+}
+
+    </script>
+
+</body>
+
+</html>
